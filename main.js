@@ -1,28 +1,10 @@
 const THRESHOLD = 100;
 
-class Vec2 {
-    constructor(x, y) {
-        this.x = x || 0;
-        this.y = y || 0;
-    }
-
-    add(vec) {
-        this.x += vec.x;
-        this.y += vec.y;
-
-        return this;
-    }
-
-    clone() {
-        return new Vec2(this.x, this.y);
-    }
-}
-
-Vec2.getRandom = (min, max) => {
-    return new Vec2(
-        Math.random() * (max - min) + min,
-        Math.random() * (max - min) + min
-    );
+function getRandomPoints(min, max) {
+    return {
+        x: Math.random() * (max - min) + min,
+        y: Math.random() * (max - min) + min
+    };
 };
 
 class World {
@@ -34,7 +16,7 @@ class World {
 
         this.objects = [];
         this.controllable = {};
-        this.mouse = new Vec2(this.canvasWidth / 2, this.canvasHeight / 2);
+        this.mouse = this.getCanvasCenter();
 
         this.tick = this.tick.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -68,8 +50,8 @@ class World {
                 this.updateParticleScatter(event.wheelDelta);
                 break;
 
-            case event.altKey:
-                this.updateParticleScatter(event.wheelDelta);
+            case event.ctrlKey:
+                this.updateParticleSize(event.wheelDelta);
                 break;
 
             default:
@@ -87,6 +69,13 @@ class World {
 
     updateParticleLife(delta) {
         this.controllable.particleLife = Math.max(1, this.controllable.particleLife - delta / 10);
+    }
+
+    getCanvasCenter() {
+        return {
+            x: this.canvasWidth / 2,
+            y: this.canvasHeight / 2
+        };
     }
 
     addObject(object) {
@@ -129,7 +118,7 @@ class ParticleSystem {
         this.particles = [];
 
         this.world = config.world;
-        this.location = config.location || new Vec2(this.world.canvasWidth / 2, this.world.canvasHeight / 2);
+        this.location = config.location || world.getCanvasCenter();
         this.maxParticles = config.maxParticles || 300;
         this.particleLife = config.particleLife || 60;
         this.particleSize = config.particleSize || 24;
@@ -152,7 +141,7 @@ class ParticleSystem {
             for (let i = 0; i < this.creationRate; i += 1) {
                 this.addParticle({
                     location: this.location,
-                    speed: Vec2.getRandom(-this.scatter, this.scatter),
+                    speed: getRandomPoints(-this.scatter, this.scatter),
                     life: this.particleLife,
                     size: this.particleSize
                 });
@@ -166,9 +155,16 @@ class ParticleSystem {
             })
             .map(particle => {
                 const life = particle.life - 1;
-                const speed = particle.speed.clone().add(Vec2.getRandom(-this.gravityRate, this.gravityRate));
+                const random = getRandomPoints(-this.gravityRate, this.gravityRate);
+                const speed = {
+                    x: particle.speed.x + random.x,
+                    y: particle.speed.y + random.y
+                };
                 const size = Math.max(0, this.particleSize * (life / this.particleLife));
-                const location = particle.location.clone().add(speed);
+                const location = {
+                    x: particle.location.x + speed.x,
+                    y: particle.location.y + speed.y
+                };
 
                 return { speed, size, location, life };
             });
