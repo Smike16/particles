@@ -1,9 +1,13 @@
 const THRESHOLD = 100;
 
+function getRandom(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
 function getRandomPoints(min, max) {
     return {
-        x: Math.random() * (max - min) + min,
-        y: Math.random() * (max - min) + min
+        x: getRandom(min, max),
+        y: getRandom(min, max)
     };
 };
 
@@ -151,14 +155,14 @@ class ParticleSystem {
         this.particles = this.particles
             .filter(particle => {
                 // Removing not visible particles and dead particles
-                return this.isVisible(particle) || this.isParticleAlive(particle);
+                return this.isVisible(particle) && this.isParticleAlive(particle);
             })
             .map(particle => {
                 const life = particle.life - 1;
-                const random = getRandomPoints(-this.gravityRate, this.gravityRate);
+                const gravity = getRandomPoints(-this.gravityRate, this.gravityRate);
                 const speed = {
-                    x: particle.speed.x + random.x,
-                    y: particle.speed.y + random.y
+                    x: particle.speed.x + gravity.x,
+                    y: particle.speed.y + gravity.y
                 };
                 const size = Math.max(0, this.particleSize * (life / this.particleLife));
                 const location = {
