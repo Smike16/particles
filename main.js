@@ -13,7 +13,7 @@ class Vec2 {
         return this;
     }
 
-    copy() {
+    clone() {
         return new Vec2(this.x, this.y);
     }
 }
@@ -26,11 +26,11 @@ Vec2.getRandom = (min, max) => {
 };
 
 class World {
-    constructor(canvas) {
-        this.canvas = canvas;
-        this.ctx = this.canvas.getContext('2d');
-        this.canvasWidth = this.canvas.width = window.innerWidth;
-        this.canvasHeight = this.canvas.height = window.innerHeight;
+    constructor(canvasNode) {
+        this.canvasNode = canvasNode;
+        this.ctx = this.canvasNode.getContext('2d');
+        this.canvasWidth = this.canvasNode.width = window.innerWidth;
+        this.canvasHeight = this.canvasNode.height = window.innerHeight;
 
         this.objects = [];
         this.controllable = {};
@@ -41,14 +41,18 @@ class World {
         this.handleMouseWheel = this.handleMouseWheel.bind(this);
         this.handleWindowResize = this.handleWindowResize.bind(this);
 
-        this.canvas.addEventListener('mousemove', this.handleMouseMove);
-        this.canvas.addEventListener('mousewheel', this.handleMouseWheel);
+        this.init();
+    }
+
+    init() {
+        this.canvasNode.addEventListener('mousemove', this.handleMouseMove);
+        this.canvasNode.addEventListener('mousewheel', this.handleMouseWheel);
         window.addEventListener('resize', this.handleWindowResize);
     }
 
     handleWindowResize() {
-        this.canvasHeight = this.canvas.width =  window.innerHeight;
-        this.canvasWidth = this.canvas.width = window.innerWidth;
+        this.canvasHeight = this.canvasNode.width =  window.innerHeight;
+        this.canvasWidth = this.canvasNode.width = window.innerWidth;
     }
 
     handleMouseMove(event) {
@@ -61,16 +65,28 @@ class World {
 
         switch (true) {
             case event.shiftKey:
-                this.controllable.scatter = Math.max(0, this.controllable.scatter - event.wheelDelta / 100);
+                this.updateParticleScatter(event.wheelDelta);
                 break;
 
             case event.altKey:
-                this.controllable.particleSize = Math.max(0, this.controllable.particleSize - event.wheelDelta / 100);
+                this.updateParticleScatter(event.wheelDelta);
                 break;
 
             default:
-                this.controllable.particleLife = Math.max(1, this.controllable.particleLife - event.wheelDelta / 10);
+                this.updateParticleLife(event.wheelDelta);
         }
+    }
+
+    updateParticleScatter(delta) {
+        this.controllable.scatter = Math.max(0, this.controllable.scatter - delta / 100);
+    }
+
+    updateParticleSize(delta) {
+        this.controllable.particleSize = Math.max(0, this.controllable.particleSize - delta / 100);
+    }
+
+    updateParticleLife(delta) {
+        this.controllable.particleLife = Math.max(1, this.controllable.particleLife - delta / 10);
     }
 
     addObject(object) {
@@ -113,7 +129,7 @@ class ParticleSystem {
         this.particles = [];
 
         this.world = config.world;
-        this.location = config.location || new Vec2();
+        this.location = config.location || new Vec2(this.world.canvasWidth / 2, this.world.canvasHeight / 2);
         this.maxParticles = config.maxParticles || 300;
         this.particleLife = config.particleLife || 60;
         this.particleSize = config.particleSize || 24;
@@ -127,19 +143,15 @@ class ParticleSystem {
         }
     }
 
-    addParticle(config) {
-        this.particles.push(config);
-    }
-
-    removeParticle(index) {
-        this.particles.splice(index, 1);
+    addParticle(particle) {
+        this.particles.push(particle);
     }
 
     update() {
         if (this.particles.length < this.maxParticles) {
             for (let i = 0; i < this.creationRate; i += 1) {
                 this.addParticle({
-                    location: this.location.copy(),
+                    location: this.location,
                     speed: Vec2.getRandom(-this.scatter, this.scatter),
                     life: this.particleLife,
                     size: this.particleSize
@@ -150,19 +162,15 @@ class ParticleSystem {
         this.particles = this.particles
             .filter(particle => {
                 // Removing not visible particles and dead particles
-                return !this.isNotVisible(particle) || this.life >= 0;
+                return this.isVisible(particle) || this.isParticleAlive(particle);
             })
             .map(particle => {
-                const speed = particle.speed.add(Vec2.getRandom(-this.gravityRate, this.gravityRate));
-                const size = Math.max(0, this.particleSize = (particle.life -= 1 / this.particleLife));
-                const location = particle.location.add(speed);
+                const life = particle.life - 1;
+                const speed = particle.speed.clone().add(Vec2.getRandom(-this.gravityRate, this.gravityRate));
+                const size = Math.max(0, this.particleSize * (life / this.particleLife));
+                const location = particle.location.clone().add(speed);
 
-                return {
-                    speed,
-                    size,
-                    location,
-                    life: particle.life
-                };
+                return { speed, size, location, life };
             });
     }
 
@@ -201,13 +209,17 @@ class ParticleSystem {
         this.world.ctx.fill();
     }
 
-    isNotVisible(particle, threshold = THRESHOLD) {
+    isVisible(particle, threshold = THRESHOLD) {
         return (
-            particle.location.y > this.world.canvasHeight + threshold ||
-            particle.location.y < -threshold ||
-            particle.location.y > this.world.canvasWidth + threshold ||
-            particle.location.x < -threshold
+            particle.location.y < this.world.canvasHeight + threshold &&
+            particle.location.y > -threshold &&
+            particle.location.x < this.world.canvasWidth + threshold &&
+            particle.location.x > -threshold
         );
+    }
+
+    isParticleAlive(particle) {
+        return particle.life >= 0;
     }
 }
 
@@ -215,12 +227,11 @@ const world = new World(document.getElementById('canvas'));
 
 world.addObject(new ParticleSystem({
     world,
-    location: new Vec2(200, 400),
-    maxParticles: 800,
+    maxParticles: 1000,
     particleSize: 30,
-    particleLife: 20,
+    particleLife: 200,
     scatter: 3,
-    gravityRate: -0.1,
+    gravityRate: -0.2,
     controllable: true
 }));
 
