@@ -68,7 +68,7 @@ class World {
     }
 
     updateParticleSize(delta) {
-        this.controllable.particleSize = Math.max(0, this.controllable.particleSize - delta / 100);
+        this.controllable.particleSize = Math.max(0, this.controllable.particleSize - delta);
     }
 
     updateParticleLife(delta) {
@@ -86,33 +86,29 @@ class World {
         this.objects.push(object);
     }
 
-    removeObject(index) {
-        this.objects.splice(index, 1);
-    }
-
     start() {
         this.tick();
     }
 
     tick() {
         this.update();
-        this.draw();
+        this.render();
 
         window.requestAnimationFrame(this.tick);
     }
 
     update() {
-        this.objects.forEach((object, index) => {
-            object.update(index);
+        this.objects.forEach(object => {
+            object.update();
         });
     }
 
-    draw() {
+    render() {
         this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         this.ctx.globalAlpha = 1;
 
         this.objects.forEach(object => {
-            object.draw();
+            object.render();
         });
     }
 }
@@ -129,6 +125,7 @@ class ParticleSystem {
         this.creationRate = config.creationRate || 3;
         this.gravityRate = config.gravityRate || -0.5;
         this.scatter = config.scatter || 1.3;
+        this.colors = config.colors;
 
         if (config.controllable) {
             this.world.controllable = this;
@@ -174,13 +171,13 @@ class ParticleSystem {
             });
     }
 
-    draw() {
+    render() {
         this.particles.forEach(particle => {
-            this.drawParticle(particle);
+            this.renderParticle(particle);
         });
     }
 
-    drawParticle(particle) {
+    renderParticle(particle) {
         this.world.ctx.globalCompositeOperation = 'lighter';
         this.world.ctx.globalAlpha = particle.life / this.particleLife;
 
@@ -192,8 +189,8 @@ class ParticleSystem {
             particle.location.y,
             particle.size
         );
-        gradient.addColorStop(0, 'rgba(255, 255, 255, .8');
-        gradient.addColorStop(0.3, 'rgba(255, 255, 255, .5');
+        gradient.addColorStop(0, this.colors.start);
+        gradient.addColorStop(0.3, this.colors.stop);
         gradient.addColorStop(1, 'transparent');
 
         this.world.ctx.fillStyle = gradient;
@@ -231,7 +228,11 @@ world.addObject(new ParticleSystem({
     particleSize: 30,
     particleLife: 200,
     scatter: 3,
-    gravityRate: -0.2,
+    gravityRate: 0.2,
+    colors: {
+        start: 'rgba(255, 255, 255, .8)',
+        stop: 'rgba(255, 255, 255, .5)'
+    },
     controllable: true
 }));
 
